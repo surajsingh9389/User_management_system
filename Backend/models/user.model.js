@@ -14,10 +14,16 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     age: { type: Number, required: true, min: 1 },
-    phone: {
+    gender: {
       type: String,
+      enum: ["Male", "Female"],
       required: true,
-      match: [/^[0-9]{10,12}$/, "Please provide valid phone number"],
+    },
+    status: {
+      type: String,
+      enum: ["Active", "InActive"],
+      default: "Active",
+      required: true,
     },
     profileImage: {
       type: String,

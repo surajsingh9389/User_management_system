@@ -6,7 +6,7 @@ import fs from 'fs/promises';
 // Create User Controller
 export const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, age, phone } = req.body;
+    const { firstName, lastName, email, age, gender, status } = req.body;
 
     let imageUrl = "";
 
@@ -15,17 +15,18 @@ export const createUser = async (req, res) => {
       const result = await cloudinary.uploader.upload(req.file.path);
       imageUrl = result.secure_url;
 
-      // Remove image from tempory storage(uploads);
-      await fs.unlink(req.file.path); 
+      // Remove image from temporary storage(uploads)
+      await fs.unlink(req.file.path);
     }
 
-    //Create new User
+    // Create new User
     const user = await User.create({
       firstName,
       lastName,
       email,
       age,
-      phone,
+      gender,
+      status: status || "Active",
       profileImage: imageUrl,
     });
 
@@ -53,7 +54,8 @@ export const getUsers = async (req, res) => {
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } },
+        { gender: { $regex: search, $options: "i" } },
+        { status: { $regex: search, $options: "i" } },
       ],
     };
 
@@ -72,7 +74,7 @@ export const getUsers = async (req, res) => {
       totalUsers, // Total users in DB
       totalPages: Math.ceil(totalUsers / limit), // Total pages
       currentPage: page, // Confirming which page they are on
-      users, // The actual array of 5 user objects
+      users, // The actual array of user objects
     });
   } catch (error) {
     res.status(500).json({
@@ -108,7 +110,7 @@ export const getUserById = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, age, phone } = req.body;
+    const { firstName, lastName, email, age, gender, status } = req.body;
 
     // Find user by id in DB
     const user = await User.findById(id);
@@ -132,8 +134,8 @@ export const updateUser = async (req, res) => {
       // Upload new image
       const result = await cloudinary.uploader.upload(req.file.path);
       imageUrl = result.secure_url;
-      // Remove image from tempory storage(uploads);
-      await fs.unlink(req.file.path); 
+      // Remove image from temporary storage(uploads)
+      await fs.unlink(req.file.path);
     }
 
     // Update user fields
@@ -141,7 +143,8 @@ export const updateUser = async (req, res) => {
     user.lastName = lastName || user.lastName;
     user.email = email || user.email;
     user.age = age || user.age;
-    user.phone = phone || user.phone;
+    user.gender = gender || user.gender;
+    user.status = status || user.status;
     user.profileImage = imageUrl;
 
     await user.save();
@@ -190,13 +193,34 @@ export const deleteUser = async (req, res) => {
   }
 };
 
+// Update User Status (inline from table)
+export const updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.status = status;
+    await user.save();
+
+    res.status(200).json({ message: "Status updated successfully", user });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating status", error: error.message });
+  }
+};
+
 // Export Users to CSV
 export const exportUsersToCSV = async (req, res) => {
   try {
 
     // Get all users but only pick the columns we want to show
     const users = await User.find().select(
-      "firstName lastName email age phone createdAt",
+      "firstName lastName email age gender status createdAt",
     );
 
     // If the database is empty stop and send an error
@@ -205,17 +229,18 @@ export const exportUsersToCSV = async (req, res) => {
         message: "No users found",
       });
     }
-    
+
     // Define the column headers for the top of the spreadsheet
     const fields = [
       "firstName",
       "lastName",
       "email",
       "age",
-      "phone",
+      "gender",
+      "status",
       "createdAt",
     ];
-    
+
     // Create a translator to turn JSON into CSV text
     const json2csv = new Parser({ fields });
 

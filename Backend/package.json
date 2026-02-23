@@ -18,7 +18,8 @@
     "express": "^5.2.1",
     "json2csv": "^6.0.0-alpha.2",
     "mongoose": "^9.2.1",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.13"

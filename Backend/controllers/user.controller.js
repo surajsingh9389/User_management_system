@@ -1,7 +1,21 @@
+import streamifier from "streamifier";
 import cloudinary from "../config/cloudinary.js";
 import User from "../models/user.model.js";
 import { Parser } from "json2csv";
-import fs from 'fs/promises';
+
+const uploadFromBuffer = (buffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "users" },
+      (error, result) => {
+        if (result) resolve(result);
+        else reject(error);
+      }
+    );
+
+    streamifier.createReadStream(buffer).pipe(stream);
+  });
+};
 
 // Create User Controller
 export const createUser = async (req, res) => {
@@ -10,13 +24,10 @@ export const createUser = async (req, res) => {
 
     let imageUrl = "";
 
-    // If file exists, upload to Cloudinary
+    // Upload to Cloudinary from memory buffer
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path);
+      const result = await uploadFromBuffer(req.file.buffer);
       imageUrl = result.secure_url;
-
-      // Remove image from temporary storage(uploads)
-      await fs.unlink(req.file.path);
     }
 
     // Create new User
@@ -125,17 +136,15 @@ export const updateUser = async (req, res) => {
 
     // If new image uploaded
     if (req.file) {
-      // if image exists Delete old image from Cloudinary
+      // Delete old image from Cloudinary (if exists)
       if (user.profileImage) {
         const publicId = user.profileImage.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
+        await cloudinary.uploader.destroy(`users/${publicId}`);
       }
 
-      // Upload new image
-      const result = await cloudinary.uploader.upload(req.file.path);
+      // Upload new image from buffer
+      const result = await uploadFromBuffer(req.file.buffer);
       imageUrl = result.secure_url;
-      // Remove image from temporary storage(uploads)
-      await fs.unlink(req.file.path);
     }
 
     // Update user fields
